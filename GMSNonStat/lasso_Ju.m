@@ -38,11 +38,7 @@ for j = 1:1:p
 end
 
 % estimated neigbours correspond to nodes with non-zero norms
-<<<<<<< HEAD
-neigbours = find(scores>rho_min/2)
-=======
-neigbours = find(scores);
->>>>>>> b1c40c09fe9ec8d709b1b754f533adff01ce23a0
+neigbours = find(scores>rho_min/2);
 
 % since we extracted original node, apply index correction
 neigbours(neigbours >= node_i) = neigbours(neigbours >= node_i)+1;

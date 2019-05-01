@@ -13,7 +13,7 @@ rng('shuffle') ;
 
 %% Parameters
 graph_type = 1; % type 1: chain graph
-gamma = 35; % group lasso regularizer
+gamma = 20; % group lasso regularizer
 
 num_blocks = 4;
 sparsity = 2; % for chain graph
@@ -79,7 +79,7 @@ for iter_param = 1:length(dim_vals)
                 
             end
             % estimate neighbours using group lasso
-            glasso_estimator = lasso(node_i, samples(:,node_i),samples(:,[1:node_i-1 node_i+1:end]), block_length, gamma);
+            glasso_estimator = lasso_Ju(node_i, samples(:,node_i),samples(:,[1:node_i-1 node_i+1:end]), block_length, gamma, rho_min)
             glasso_N = zeros(dimension,1);
             glasso_N(glasso_estimator) = 1;
             
