@@ -2,7 +2,12 @@
 
 Find source code and preprints related to our research on machine learning in big data over networks. 
 
-/GMSNonStat contains source code for experiments in the paper "On the Sample Complexity of Graphical Model Selection from Non-Stationary Samples" 
+this folder  contains source code for experiments in the paper "On the Sample Complexity of Graphical Model Selection from Non-Stationary Samples" by Nguyen Tran, Oleksii Abramenko, Alexander Jung 
+
+"Clime.R" contains code for CLIME experiments in Sec. 4-A 
+"simulate_GMS_Ju.m" contains code for experiments in Sec. 4-A
+"simulate_GMS_glasso" contains code for group Lasso experiments in Sec 4-A
+"Pedestrian_Ju.m" contains code for the experiments discussed in Sec. 4-B 
 
 
 ## License

@@ -1,3 +1,8 @@
+% source code for the simulations discussed in Sec. 4-B "Pedestrian Coutns"
+% of the paper "On the Sample Complexity of Graphical Model Selection from
+% Non-Stationary Samples"
+% Last Mod.: 09.10.2019
+
 clear all;
 close all;
 
