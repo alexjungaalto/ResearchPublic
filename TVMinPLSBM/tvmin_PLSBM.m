@@ -1,6 +1,6 @@
-%%% source code for the experiment discussed in Sec. VI-B of the paper 
-%%% "Semi-supervised Learning in Network-Structured Data via 
-%%%   Total Variation Minimization"
+%%% source code for the experiment discussed in the paper 
+%%% "Clustering in Partially Labeled Stochastic Block Models 
+%%% via Total Variation Minimization" 
 
 clear all
 close all
