@@ -12,7 +12,7 @@ rehash toolboxcache
 
 
 RUNS = 100; 
-RUNS = 100; 
+RUNS = 10; 
 
 
 
@@ -23,13 +23,19 @@ p_out_vals = 1./linspace(1/10,1/0.07,20);
 p_in_vals = 0.6*ones(length(p_out_vals),1) ;
 p_in_vals = 0.9*ones(length(p_out_vals),1) ;
 
-mse_log = zeros(length(p_in_vals),1); 
-accuracy = zeros(length(p_in_vals),1); 
+alpha_vals = [0.1,0.2,0.3]  ; %% ratio of labeled nodes with known cluster assignments 
+
+
+mse_log = zeros(length(p_in_vals),length(alpha_vals)); 
+accuracy = zeros(length(p_in_vals),length(alpha_vals)); 
+for iter_alpha=1:length(alpha_vals) 
+    alpha = alpha_vals(iter_alpha) ; 
+    
 for iter_param=1:length(p_in_vals)
 
 p_in = p_in_vals(iter_param);      % edge probability within cluster
 p_out = p_out_vals(iter_param) ;    % edge probability between clsuters
-nodes_in_cluster = [5;5] ; % cluster sizes 
+nodes_in_cluster = [50;50] ; % cluster sizes 
 
 first_node = cumsum(nodes_in_cluster); 
 first_node = [1;first_node(1:(length(first_node)-1))+1] ; 
@@ -74,7 +80,7 @@ end
 
 
 samplingset = [first_node];%first_node+2;first_node+3;first_node+4];  
-
+samplingset = [1:ceil(alpha*nodes_in_cluster(1)),(nodes_in_cluster(1)+((nodes_in_cluster(2)-ceil(alpha*nodes_in_cluster(2))):nodes_in_cluster(2)))];
 %samplingset = [first_node;first_node+1;first_node+2;first_node+3;first_node+4];  
 
 
@@ -126,8 +132,8 @@ for iterk=1:1000
     % log_bound(iterk) =(1/(2*iterk))*(primSLP'*inv(Gamma)*primSLP)+((dualSLP-dual)'*inv(Lambda)*(dualSLP-dual)) ;
 end
 tmp = running_average-graphsig ; 
-accuracy(iter_param) = accuracy(iter_param) + length(find(abs(tmp)<1/2)) ; 
-mse_log(iter_param)=mse_log(iter_param)+norm(running_average-graphsig)^2;
+accuracy(iter_param,iter_alpha) = accuracy(iter_param,iter_alpha) + length(find(abs(tmp)<1/2))-length(samplingset) ; 
+mse_log(iter_param,iter_alpha)=mse_log(iter_param,iter_alpha)+norm(running_average-graphsig)^2;
 end
 end
 %figure(1); 
@@ -146,18 +152,27 @@ figure(4);
 
 x_vals = p_in_vals./p_out_vals' ; 
 mselog = mse_log/(RUNS) ; 
-accuracy = accuracy/(RUNS*10); 
-mselog=mselog/norm(graphsig)^2 ; 
-stem(x_vals,mselog); 
+accuracy(:,iter_alpha) = accuracy(:,iter_alpha)/(RUNS*(sum(nodes_in_cluster)-length(samplingset))); 
+mselog(:,iter_alpha)=mselog(:,iter_alpha)/norm(graphsig)^2 ; 
+%figure(iter_alpha)
 
-mtx=[x_vals accuracy]; 
-%mtx = flipup(mtx); 
-T = array2table(mtx,'VariableNames',{'a','b'});
-%csvwrite('hingelosswoheader.csv',mtx);
 
-filename = sprintf('ACCoverSBMParam_%s.csv',datetime(now,'ConvertFrom','datenum')) ; 
+%accuracy_vs_alpha(:,iter_alpha) = accuracy; 
+%mse_vs_alpha(:,iter_alpha) = mselog; 
+end
 
-writetable(T,fullfile(pathtothismfile,filename));
+for iter=1:length(alpha_vals)
+    alpha = alpha_vals(iter); 
+    S=ceil(alpha*nodes_in_cluster(1)); 
+    %stem(x_vals,mselog); 
+    mtx=[S*x_vals accuracy(:,iter)]; 
+    T = array2table(mtx,'VariableNames',{'a','b'});
+  %  filename = sprintf('ACCoverSBMParam_%02d.csv',datetime(now,'ConvertFrom','datenum'),S) ; 
+    filename = sprintf('ACCoverSBMParam_%02d.csv',S) ; 
+ 
+    writetable(T,fullfile(pathtothismfile,filename));
+end
+
 
 
 
