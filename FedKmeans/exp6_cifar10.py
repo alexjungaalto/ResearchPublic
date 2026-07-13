@@ -754,6 +754,39 @@ DATASETS = ["iso", "aniso", "var"]
 
 # ----------------------------------------------------------------------
 
+def load_cifar10_pca50(data_dir):
+    """CIFAR-10 train split (50k images, 32x32x3 flattened to 3072
+    dims, scaled to [0,1]), reduced to 50 dimensions by PCA.  The
+    paper states PCA-50 retains ~84.3% of the total variance; the
+    loader prints the realized value as a check.
+
+    Downloads the official python-version tarball (~170 MB) on first
+    use; afterwards everything is read from data_dir."""
+    data_dir = Path(data_dir)
+    data_dir.mkdir(parents=True, exist_ok=True)
+    tar = data_dir / "cifar-10-python.tar.gz"
+    if not tar.exists():
+        print("[cifar] downloading CIFAR-10 ...")
+        urllib.request.urlretrieve(
+            "https://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz", tar)
+    if not (data_dir / "cifar-10-batches-py").exists():
+        with tarfile.open(tar) as tf:
+            tf.extractall(data_dir)
+    parts = []
+    for b in range(1, 6):
+        with open(data_dir / "cifar-10-batches-py" / f"data_batch_{b}",
+                  "rb") as fh:
+            parts.append(pickle.load(fh, encoding="bytes")[b"data"])
+    X = np.vstack(parts).astype(float) / 255.0
+    pca = PCA(n_components=50, random_state=0)
+    Xp = pca.fit_transform(X)
+    print(f"[cifar] PCA-50 retains {pca.explained_variance_ratio_.sum():.1%}"
+          " of the variance")
+    return Xp
+
+
+# ----------------------------------------------------------------------
+
 # DGC-KM_rho (Armacki et al., IEEE TSP 2025, Algorithm 1 + eq. (7))
 # ----------------------------------------------------------------------
 # Their framework minimizes the rho-relaxed objective (their eq. (4))
@@ -874,6 +907,52 @@ def consensus_round(cv_hist):
     return len(cv_hist) - 1
 
 
+# Figure-ready CSV conversion: column prefixes of the paper's
+# tikz_tables/cifar10_{gcd,cv}.csv (the DGC column shows rho=1, the
+# value displayed throughout the paper).
+TIKZ_METHOD_COLS = [
+    ("FedKM-NC", "Fed"),
+    ("FedKM-OT", "FedP"),
+    ("Distributed", "Dist_ind"),
+    ("Distributed (shared)", "Dist_shared"),
+    ("DGC-KM (rho=1)", "DGC"),
+]
+
+TINY = 1e-12
+
+
+def write_tikz_curves(curves, table, outdir):
+    """Convert the per-seed trajectories into the exact data files
+    behind Fig. 2 of the paper: per iteration, log10 of the seed-mean
+    metric plus asymmetric error columns eplus/eminus such that
+    [mean_log - eminus, mean_log + eplus] is the 95% CI of the seed
+    mean mapped to the log10 axis."""
+    for metric, out_name in [("gcd", "cifar10_gcd.csv"),
+                             ("cv", "cifar10_cv.csv")]:
+        loc = float(table.loc[table.method == "Local",
+                              f"{metric}_mean"].iloc[0])
+        rows = []
+        for t, g in curves.groupby("t"):
+            row = {"t": t}
+            for name, prefix in TIKZ_METHOD_COLS:
+                v = g.loc[g.method == name, metric].to_numpy()
+                m, h = mean_ci(v)
+                row[f"{prefix}_mean_log"] = np.log10(max(m, TINY))
+                row[f"{prefix}_eplus"] = (np.log10(max(m + h, TINY))
+                                          - np.log10(max(m, TINY)))
+                row[f"{prefix}_eminus"] = (np.log10(max(m, TINY))
+                                           - np.log10(max(m - h, TINY)))
+            row["Local_ref"] = np.log10(max(loc, TINY))
+            row["Central_ref"] = -12
+            rows.append(row)
+        cols = ["t"]
+        for _, prefix in TIKZ_METHOD_COLS:
+            cols += [f"{prefix}_mean_log", f"{prefix}_eplus",
+                     f"{prefix}_eminus"]
+        cols += ["Local_ref", "Central_ref"]
+        pd.DataFrame(rows)[cols].to_csv(outdir / out_name, index=False)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--outdir", default="outputs")
@@ -942,15 +1021,16 @@ def main():
                               rounds=np.nan, floats=np.nan,
                               gcd=gcd(mu_c, Ws), cv=cv(Ws, A)))
 
-    pd.concat(curves).to_csv(outdir / "cifar10_dgc_curves.csv",
-                             index=False)
+    curves_df = pd.concat(curves)
+    curves_df.to_csv(outdir / "cifar10_dgc_curves.csv", index=False)
     df = pd.DataFrame(table)
     agg = (df.groupby("method")[["floats", "rounds", "wall", "gcd", "cv"]]
              .agg(["mean", lambda v: mean_ci(v.dropna())[1]]))
     agg.columns = [f"{a}_{'ci95' if b != 'mean' else 'mean'}"
                    for a, b in agg.columns]
-    agg.reset_index().to_csv(outdir / "cifar10_dgc_table.csv",
-                             index=False)
+    agg = agg.reset_index()
+    agg.to_csv(outdir / "cifar10_dgc_table.csv", index=False)
+    write_tikz_curves(curves_df, agg, outdir)
     print(agg.round(3).to_string())
     print("done; results in", outdir.resolve())
 

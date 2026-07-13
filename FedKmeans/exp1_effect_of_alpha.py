@@ -784,11 +784,19 @@ def exp_alpha(outdir, seeds, quick=False):
                         t=np.arange(len(rec.gcd)), gcd=rec.gcd)))
             print(f"[alpha] {ds} seed={seed} done", flush=True)
     df = pd.DataFrame(rows)
-    # Final-xi_1 table (mean +/- CI over seeds) -> Table II layout.
-    agg = (df.groupby(["dataset", "alpha", "method"])["gcd"]
-             .apply(lambda v: pd.Series(mean_ci(v), index=["mean", "ci95"]))
-             .unstack().reset_index())
-    agg.to_csv(outdir / "effect_of_alpha_table.csv", index=False)
+    # Per-seed final xi_1 values, so every aggregate of the paper can
+    # be recomputed exactly from this file.
+    df.to_csv(outdir / "effect_of_alpha_per_seed.csv", index=False)
+    # Final-xi_1 table (mean +/- CI over seeds) in the raw AND the
+    # log10 domain; the paper's Table III displays the log10 columns
+    # (mean +/- 95% CI of log10 xi_1 over seeds).
+    df["log10_gcd"] = np.log10(np.maximum(df["gcd"], 1e-300))
+    agg = (df.groupby(["dataset", "alpha", "method"])[["gcd", "log10_gcd"]]
+             .agg([("mean", "mean"),
+                   ("ci95", lambda v: mean_ci(v)[1])]))
+    agg.columns = [f"{m}_{s}" for m, s in agg.columns]
+    agg.reset_index().to_csv(outdir / "effect_of_alpha_table.csv",
+                             index=False)
     # Seed-averaged xi_1 trajectories -> Fig. ablation row 1.
     (pd.concat(curves)
        .groupby(["dataset", "alpha", "method", "t"])["gcd"].mean()
